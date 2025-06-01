@@ -67,6 +67,8 @@ ax.set_xlabel("X Coordinate")
 ax.set_ylabel("Y Coordinate")
 ax.legend()
 ax.grid()
+# Flip the y-axis to match OpenCV's coordinate system
+ax.invert_yaxis()
 
 while True:
     ret, frame = cap.read()
