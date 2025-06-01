@@ -1,5 +1,6 @@
 import cv2
 import numpy as np
+import matplotlib.pyplot as plt
 
 # Initialize camera
 cap = cv2.VideoCapture("/dev/video2")
@@ -52,6 +53,20 @@ def draw_heat_map(frame):
 
 # Initialize variables for motion tracking
 previous_frame = None
+# List to store centroids of the largest motion segment
+centroids = []
+
+
+# Initialize matplotlib for live plotting
+plt.ion()  # Turn on interactive mode
+fig, ax = plt.subplots(figsize=(8, 6))
+x_coords, y_coords = [], []  # Lists to store x and y coordinates of centroids
+line, = ax.plot([], [], marker='o', linestyle='-', color='b', label='Centroid Path')
+ax.set_title("Centroid Path of Largest Motion Segment")
+ax.set_xlabel("X Coordinate")
+ax.set_ylabel("Y Coordinate")
+ax.legend()
+ax.grid()
 
 while True:
     ret, frame = cap.read()
@@ -84,11 +99,36 @@ while True:
         cv2.CHAIN_APPROX_SIMPLE
     )
 
-    # Draw bounding boxes for moving objects
-    for cnt in motion_contours:
-        if cv2.contourArea(cnt) > 100:  # Filter small motion areas
-            x, y, w, h = cv2.boundingRect(cnt)
-            cv2.rectangle(frame, (x, y), (x+w, y+h), (255, 0, 0), 1)  # Blue for motion
+        # Find the largest motion contour and calculate its centroid
+    if motion_contours:
+        largest_contour = max(motion_contours, key=cv2.contourArea)
+        if cv2.contourArea(largest_contour) > 100:  # Filter small motion areas
+            # Calculate centroid
+            M = cv2.moments(largest_contour)
+            if M["m00"] != 0:  # Avoid division by zero
+                cx = int(M["m10"] / M["m00"])
+                cy = int(M["m01"] / M["m00"])
+                centroids.append((cx, cy))  # Store the centroid
+                # Draw the centroid on the frame
+                cv2.circle(frame, (cx, cy), 5, (0, 0, 255), -1)  # Red dot for centroid
+                # Update the live plot
+                line.set_xdata(cx)
+                line.set_ydata(cy)
+                ax.set_xlim(0, 256)  # Set x-axis limits based on frame width
+                ax.set_ylim(0, 192)  # Set y-axis limits based on frame height
+                plt.draw()
+                plt.pause(0.001)  # Pause briefly to update the plot
+
+    # # Draw bounding boxes for multiple moving objects
+    # for cnt in motion_contours:
+    #     if cv2.contourArea(cnt) > 100:  # Filter small motion areas
+    #         x, y, w, h = cv2.boundingRect(cnt)
+    #         cv2.rectangle(frame, (x, y), (x+w, y+h), (255, 0, 0), 1)  # Blue for motion
+
+    # Draw bounding box for only the largest segment.
+    if centroids:
+        largest_centroid = centroids[-1]  # Get the last centroid
+        cv2.rectangle(frame, (largest_centroid[0]-5, largest_centroid[1]-5), (largest_centroid[0]+5, largest_centroid[1]+5), (0, 255, 255), 2)  # Yellow box for largest segment
 
 
     resized_frame = cv2.resize(frame, (800, 600))
@@ -108,3 +148,5 @@ while True:
 
 cap.release()
 cv2.destroyAllWindows()
+plt.ioff()  # Turn off interactive mode
+plt.savefig("segment_trajectory.png")  # Save the final plot
