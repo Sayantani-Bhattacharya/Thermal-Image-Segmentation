@@ -7,6 +7,9 @@ cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*'YUYV'))
 cap.set(cv2.CAP_PROP_FRAME_WIDTH, 256)
 cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 192)
 
+# Initialize background subtractor for motion tracking
+background_subtractor = cv2.createBackgroundSubtractorMOG2(history=500, varThreshold=50, detectShadows=False)
+
 
 def process_thermal_frame(frame):
     """Process raw YUYV frame for thermal segmentation"""
@@ -35,8 +38,6 @@ def process_thermal_frame(frame):
     cleaned = cv2.morphologyEx(thresh, cv2.MORPH_OPEN, kernel)
     return cleaned
 
-
-# Heat-map over thermal video stream
 def draw_heat_map(frame):
     """Draw a heat map on the thermal frame"""
     # Convert to grayscale if not already
@@ -49,34 +50,58 @@ def draw_heat_map(frame):
     heat_map = cv2.applyColorMap(gray, cv2.COLORMAP_JET)
     return heat_map
 
+# Initialize variables for motion tracking
+previous_frame = None
 
 while True:
     ret, frame = cap.read()
     if not ret:
         break
 
-    segmented = process_thermal_frame(frame)
+    segmented = process_thermal_frame(frame)   
 
-    # Find contours
+    # Find contours.
     contours, _ = cv2.findContours(
         segmented,
         cv2.RETR_EXTERNAL,
         cv2.CHAIN_APPROX_SIMPLE
     )
 
-    # Draw bounding boxes
+    # Draw bounding boxes for segments.
     for cnt in contours:
-        if cv2.contourArea(cnt) > 50:
+        if cv2.contourArea(cnt) > 100: #50
             x, y, w, h = cv2.boundingRect(cnt)
             cv2.rectangle(frame, (x, y), (x+w, y+h), (0, 255, 0), 1)
+
+    # Motion tracking using background subtraction
+    fg_mask = background_subtractor.apply(frame)
+    fg_mask = cv2.morphologyEx(fg_mask, cv2.MORPH_OPEN, np.ones((3, 3), np.uint8))  # Denoise motion mask
+
+    # Find contours in the motion mask
+    motion_contours, _ = cv2.findContours(
+        fg_mask,
+        cv2.RETR_EXTERNAL,
+        cv2.CHAIN_APPROX_SIMPLE
+    )
+
+    # Draw bounding boxes for moving objects
+    for cnt in motion_contours:
+        if cv2.contourArea(cnt) > 100:  # Filter small motion areas
+            x, y, w, h = cv2.boundingRect(cnt)
+            cv2.rectangle(frame, (x, y), (x+w, y+h), (255, 0, 0), 1)  # Blue for motion
+
 
     resized_frame = cv2.resize(frame, (800, 600))
     resized_segmented = cv2.resize(segmented, (800, 600))
     heat_map_frame = draw_heat_map(resized_frame)
     resized_hestMap = cv2.resize(heat_map_frame, (800, 600))
+    resized_fg_mask = cv2.resize(fg_mask, (800, 600))
+
+
     cv2.imshow("Raw Thermal", resized_frame)
     cv2.imshow("Segmented", resized_segmented)
     cv2.imshow("Heat Map", resized_hestMap)
+    cv2.imshow("Motion Mask", resized_fg_mask)
 
     if cv2.waitKey(1) == ord('q'):
         break
