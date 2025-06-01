@@ -7,14 +7,15 @@ cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*'YUYV'))
 cap.set(cv2.CAP_PROP_FRAME_WIDTH, 256)
 cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 192)
 
+
 def process_thermal_frame(frame):
     """Process raw YUYV frame for thermal segmentation"""
-    # Convert BGR back to YUYV (if OpenCV auto-converted it)
-    if frame.shape[2] == 3:  # BGR (3-channel)
-        yuyv = cv2.cvtColor(frame, cv2.COLOR_BGR2YUV)
-        y_channel = yuyv[:, :, 0]  # Extract Y (luma) channel
-    else:  # Assume already YUYV (2-channel)
-        y_channel = frame[:, :, 0]  # First channel is Y
+    # # Convert BGR back to YUYV (if OpenCV auto-converted it)
+    # if frame.shape[2] == 3:  # BGR (3-channel)
+    #     yuyv = cv2.cvtColor(frame, cv2.COLOR_BGR2YUV)
+    #     y_channel = yuyv[:, :, 0]  # Extract Y (luma) channel
+    # else:  # Assume already YUYV (2-channel)
+    y_channel = frame[:, :, 0]  # First channel is Y
 
     # Normalize and enhance contrast
     normalized = cv2.normalize(
@@ -29,11 +30,25 @@ def process_thermal_frame(frame):
         cv2.THRESH_BINARY_INV, 11, 2
     )
 
-    # Denoise
+    # Denoise: Morphological opening (Erode followed by Dilate)
     kernel = np.ones((3, 3), np.uint8)
     cleaned = cv2.morphologyEx(thresh, cv2.MORPH_OPEN, kernel)
-
     return cleaned
+
+
+# Heat-map over thermal video stream
+def draw_heat_map(frame):
+    """Draw a heat map on the thermal frame"""
+    # Convert to grayscale if not already
+    if len(frame.shape) == 3:
+        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+    else:
+        gray = frame
+
+    # Normalize for heat map
+    heat_map = cv2.applyColorMap(gray, cv2.COLORMAP_JET)
+    return heat_map
+
 
 while True:
     ret, frame = cap.read()
@@ -55,8 +70,13 @@ while True:
             x, y, w, h = cv2.boundingRect(cnt)
             cv2.rectangle(frame, (x, y), (x+w, y+h), (0, 255, 0), 1)
 
-    cv2.imshow("Raw Thermal", frame)
-    cv2.imshow("Segmented", segmented)
+    resized_frame = cv2.resize(frame, (800, 600))
+    resized_segmented = cv2.resize(segmented, (800, 600))
+    heat_map_frame = draw_heat_map(resized_frame)
+    resized_hestMap = cv2.resize(heat_map_frame, (800, 600))
+    cv2.imshow("Raw Thermal", resized_frame)
+    cv2.imshow("Segmented", resized_segmented)
+    cv2.imshow("Heat Map", resized_hestMap)
 
     if cv2.waitKey(1) == ord('q'):
         break
