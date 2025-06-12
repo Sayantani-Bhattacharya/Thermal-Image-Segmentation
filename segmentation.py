@@ -77,8 +77,15 @@ output_segmented = cv2.VideoWriter('results/segmented.mp4', fourcc, 20.0, (800, 
 output_heat_map = cv2.VideoWriter('results/heat_map.mp4', fourcc, 20.0, (800, 600))
 output_motion_mask = cv2.VideoWriter('results/motion_mask.mp4', fourcc, 20.0, (800, 600))
 
+# frame sorage lists for video:
+frames_raw = []
+frames_segmented = []
+frames_heat_map = []
+frames_motion_mask = []
+
+
 # Timer setup
-t = 2  # Duration in seconds to save video
+t = 6  # Duration in seconds to save video
 start_time = time.time()  # Record the start time
 
 while time.time() - start_time < t:
@@ -156,6 +163,11 @@ while time.time() - start_time < t:
     resized_hestMap = cv2.resize(heat_map_frame, (800, 600))
     resized_fg_mask = cv2.resize(fg_mask, (800, 600))
 
+    # Store frames for video writing
+    frames_raw.append(resized_frame)
+    frames_segmented.append(resized_segmented)
+    frames_heat_map.append(resized_hestMap)
+    frames_motion_mask.append(resized_fg_mask)
 
     cv2.imshow("Raw Thermal", resized_frame)
     cv2.imshow("Segmented", resized_segmented)
@@ -167,11 +179,27 @@ while time.time() - start_time < t:
 
 # Save all the recordinds of frames in the results folder.
 
-# Write frames to the video files
-output_raw.write(resized_frame)
-output_segmented.write(cv2.cvtColor(resized_segmented, cv2.COLOR_GRAY2BGR))
-output_heat_map.write(resized_hestMap)
-output_motion_mask.write(cv2.cvtColor(resized_fg_mask, cv2.COLOR_GRAY2BGR))
+# Ensure the results directory exists
+import os
+if not os.path.exists('results'):
+    os.makedirs('results')
+
+# Write frames list to the video files
+for frame in frames_raw:
+    output_raw.write(frame)
+for frame in frames_segmented:
+    output_segmented.write(cv2.cvtColor(frame, cv2.COLOR_GRAY2BGR))
+for frame in frames_heat_map:
+    output_heat_map.write(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
+for frame in frames_motion_mask:
+    output_motion_mask.write(cv2.cvtColor(frame, cv2.COLOR_GRAY2BGR))
+
+
+# # Write frames to the video files
+# output_raw.write(resized_frame)
+# output_segmented.write(cv2.cvtColor(resized_segmented, cv2.COLOR_GRAY2BGR))
+# output_heat_map.write(resized_hestMap)
+# output_motion_mask.write(cv2.cvtColor(resized_fg_mask, cv2.COLOR_GRAY2BGR))
 
 # Release the video writers
 output_raw.release()
