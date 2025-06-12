@@ -114,8 +114,12 @@ while True:
                 # Draw the centroid on the frame
                 cv2.circle(frame, (cx, cy), 5, (0, 0, 255), -1)  # Red dot for centroid
                 # Update the live plot
-                line.set_xdata(cx)
-                line.set_ydata(cy)
+                x_coords.append(cx)  # Append the current x-coordinate to the list
+                y_coords.append(cy)  # Append the current y-coordinate to the list
+
+                line.set_xdata(x_coords)  # Update the line with the full x-coordinates list
+                line.set_ydata(y_coords)  # Update the line with the full y-coordinates list
+
                 ax.set_xlim(0, 256)  # Set x-axis limits based on frame width
                 ax.set_ylim(0, 192)  # Set y-axis limits based on frame height
                 plt.draw()
@@ -148,7 +152,13 @@ while True:
     if cv2.waitKey(1) == ord('q'):
         break
 
+
+# Save all the recordinds of frames in the results folder.
+
+
 cap.release()
 cv2.destroyAllWindows()
 plt.ioff()  # Turn off interactive mode
 plt.savefig("segment_trajectory.png")  # Save the final plot
+
+
