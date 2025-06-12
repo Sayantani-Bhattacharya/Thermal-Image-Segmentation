@@ -1,6 +1,7 @@
 import cv2
 import numpy as np
 import matplotlib.pyplot as plt
+import time
 
 # Initialize camera
 cap = cv2.VideoCapture("/dev/video2")
@@ -56,7 +57,6 @@ previous_frame = None
 # List to store centroids of the largest motion segment
 centroids = []
 
-
 # Initialize matplotlib for live plotting
 plt.ion()  # Turn on interactive mode
 fig, ax = plt.subplots(figsize=(8, 6))
@@ -70,9 +70,22 @@ ax.grid()
 # Flip the y-axis to match OpenCV's coordinate system
 ax.invert_yaxis()
 
-while True:
+# Define the codec and create VideoWriter objects
+fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+output_raw = cv2.VideoWriter('results/raw_thermal.mp4', fourcc, 20.0, (800, 600))
+output_segmented = cv2.VideoWriter('results/segmented.mp4', fourcc, 20.0, (800, 600))
+output_heat_map = cv2.VideoWriter('results/heat_map.mp4', fourcc, 20.0, (800, 600))
+output_motion_mask = cv2.VideoWriter('results/motion_mask.mp4', fourcc, 20.0, (800, 600))
+
+# Timer setup
+t = 2  # Duration in seconds to save video
+start_time = time.time()  # Record the start time
+
+while time.time() - start_time < t:
+
     ret, frame = cap.read()
     if not ret:
+        print("Error: Unable to read frame. Exiting loop.")
         break
 
     segmented = process_thermal_frame(frame)   
@@ -152,13 +165,23 @@ while True:
     if cv2.waitKey(1) == ord('q'):
         break
 
-
 # Save all the recordinds of frames in the results folder.
 
+# Write frames to the video files
+output_raw.write(resized_frame)
+output_segmented.write(cv2.cvtColor(resized_segmented, cv2.COLOR_GRAY2BGR))
+output_heat_map.write(resized_hestMap)
+output_motion_mask.write(cv2.cvtColor(resized_fg_mask, cv2.COLOR_GRAY2BGR))
+
+# Release the video writers
+output_raw.release()
+output_segmented.release()
+output_heat_map.release()
+output_motion_mask.release()
 
 cap.release()
 cv2.destroyAllWindows()
 plt.ioff()  # Turn off interactive mode
-plt.savefig("segment_trajectory.png")  # Save the final plot
+plt.savefig("results/segment_trajectory.png")  # Save the final plot
 
 
